@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>月々帳 - 家計簿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #eef0e9;
+    --paper-line: #d7d5c6;
+    --ink: #1c2b2c;
+    --ink-soft: #5d6c6a;
+    --income: #3d7d5c;
+    --income-bg: #e3ede5;
+    --expense: #b3392a;
+    --expense-bg: #f3e4df;
+    --gold: #a9832f;
+    --card: #f7f7f1;
+    --shadow: rgba(28, 43, 44, 0.08);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+    background-image:
+      repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 43px,
+        var(--paper-line) 43px,
+        var(--paper-line) 44px
+      );
+    background-position: 0 120px;
+  }
+
+  .binding {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 18px;
+    background: linear-gradient(to right, #c9c6b3, #d9d7c8 60%, transparent);
+    z-index: 5;
+    pointer-events: none;
+  }
+  .binding::before {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0; left: 9px;
+    width: 0;
+    border-left: 2px dashed #a9a48c;
+  }
+
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0 16px 96px 26px;
+    position: relative;
+  }
+
+  header {
+    padding: 22px 0 10px 0;
+    position: sticky;
+    top: 0;
+    background: var(--paper);
+    z-index: 4;
+  }
+
+  header {
+    padding-top: 18px;
+  }
+
+  .month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card);
+    border: 1px solid var(--paper-line);
+    border-radius: 10px;
+    padding: 8px 6px;
+    box-shadow: 0 2px 6px var(--shadow);
+  }
+  .month-nav button {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--ink-soft);
+    padding: 6px 14px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-family: inherit;
+  }
+  .month-nav button:active { background: var(--paper-line); }
+  .month-label {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin: 14px 0 22px 0;
+  }
+  .sum-card {
+    background: var(--card);
+    border: 1px solid var(--paper-line);
+    border-radius: 10px;
+    padding: 10px 6px;
+    text-align: center;
+    box-shadow: 0 2px 6px var(--shadow);
+  }
+  .sum-card .label {
+    font-size: 11px;
+    color: var(--ink-soft);
+    letter-spacing: 0.05em;
+  }
+  .sum-card .value {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+    word-break: break-all;
+  }
+  .sum-card.income .value { color: var(--income); }
+  .sum-card.expense .value { color: var(--expense); }
+  .sum-card.balance .value { color: var(--ink); }
+
+  section.group {
+    margin-bottom: 22px;
+  }
+
+  .group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .group-head h2 {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 16px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.income { background: var(--income); }
+  .dot.expense { background: var(--expense); }
+  .group-total {
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .group-total.income { color: var(--income); }
+  .group-total.expense { color: var(--expense); }
+
+  .entries {
+    background: var(--card);
+    border: 1px solid var(--paper-line);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 6px var(--shadow);
+  }
+
+  .entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--paper-line);
+    gap: 10px;
+  }
+  .entry:last-child { border-bottom: none; }
+  .entry .label {
+    font-size: 14.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .entry .amount {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .entry.income .amount { color: var(--income); }
+  .entry.expense .amount { color: var(--expense); }
+  .entry .del {
+    border: none;
+    background: none;
+    color: #b8b4a2;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 4px;
+    cursor: pointer;
+  }
+  .entry .del:active { color: var(--expense); }
+
+  .empty {
+    padding: 20px 12px;
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+  }
+
+  .add-form {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .add-form input[type="text"] {
+    flex: 1.3;
+    min-width: 0;
+  }
+  .add-form input[type="number"] {
+    flex: 1;
+    min-width: 0;
+  }
+  .add-form input {
+    border: 1px solid var(--paper-line);
+    background: #fff;
+    border-radius: 8px;
+    padding: 10px 10px;
+    font-size: 14.5px;
+    font-family: inherit;
+    color: var(--ink);
+  }
+  .add-form input:focus {
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+  }
+  .add-form button {
+    border: none;
+    border-radius: 8px;
+    padding: 0 16px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .add-form.income button { background: var(--income); }
+  .add-form.expense button { background: var(--expense); }
+  .add-form button:active { filter: brightness(0.92); }
+
+  .toast {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .dot.backup { background: var(--gold); }
+
+  .backup-section { margin-top: 6px; }
+
+  .backup-card {
+    background: var(--card);
+    border: 1px solid var(--paper-line);
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: 0 2px 6px var(--shadow);
+  }
+
+  .backup-desc {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+
+  .backup-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .backup-btn {
+    border-radius: 8px;
+    padding: 11px 14px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1px solid var(--gold);
+    background: #fff;
+    color: var(--gold);
+  }
+  .backup-btn.export {
+    background: var(--gold);
+    color: #fff;
+  }
+  .backup-btn:active { filter: brightness(0.94); }
+
+  .backup-note {
+    margin: 10px 0 0 0;
+    font-size: 12px;
+    color: var(--ink-soft);
+    min-height: 16px;
+  }
+
+  .footnote {
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 11.5px;
+    margin-top: 18px;
+    letter-spacing: 0.03em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toast { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="binding"></div>
+<div class="app">
+  <header>
+    <div class="month-nav">
+      <button id="prevMonth" aria-label="前の月">◀</button>
+      <div class="month-label" id="monthLabel">-</div>
+      <button id="nextMonth" aria-label="次の月">▶</button>
+    </div>
+    <div class="summary">
+      <div class="sum-card income">
+        <div class="label">収入合計</div>
+        <div class="value" id="incomeTotal">¥0</div>
+      </div>
+      <div class="sum-card expense">
+        <div class="label">支出合計</div>
+        <div class="value" id="expenseTotal">¥0</div>
+      </div>
+      <div class="sum-card balance">
+        <div class="label">差引残高</div>
+        <div class="value" id="balanceTotal">¥0</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="group">
+    <div class="group-head">
+      <h2><span class="dot income"></span>収入</h2>
+      <div class="group-total income" id="incomeGroupTotal">¥0</div>
+    </div>
+    <div class="entries" id="incomeList"></div>
+    <form class="add-form income" id="incomeForm">
+      <input type="text" id="incomeLabel" placeholder="項目（例：給与）" maxlength="30" required>
+      <input type="number" id="incomeAmount" placeholder="金額" min="0" inputmode="numeric" required>
+      <button type="submit">追加</button>
+    </form>
+  </section>
+
+  <section class="group">
+    <div class="group-head">
+      <h2><span class="dot expense"></span>支出</h2>
+      <div class="group-total expense" id="expenseGroupTotal">¥0</div>
+    </div>
+    <div class="entries" id="expenseList"></div>
+    <form class="add-form expense" id="expenseForm">
+      <input type="text" id="expenseLabel" placeholder="項目（例：食費）" maxlength="30" required>
+      <input type="number" id="expenseAmount" placeholder="金額" min="0" inputmode="numeric" required>
+      <button type="submit">追加</button>
+    </form>
+  </section>
+
+  <section class="group backup-section">
+    <div class="group-head">
+      <h2><span class="dot backup"></span>バックアップ</h2>
+    </div>
+    <div class="backup-card">
+      <p class="backup-desc">全ての月の記録をまとめて1つのファイルに書き出せます。機種変更やアプリの入れ直しの前に取っておくと安心です。</p>
+      <div class="backup-actions">
+        <button type="button" id="exportBtn" class="backup-btn export">バックアップを書き出す</button>
+        <button type="button" id="importBtn" class="backup-btn import">バックアップから復元する</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none">
+      </div>
+      <p class="backup-note" id="lastBackupNote"></p>
+    </div>
+  </section>
+
+  <div class="footnote">この端末のあなたのデータとして保存されます</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  const monthLabel = document.getElementById('monthLabel');
+  const incomeList = document.getElementById('incomeList');
+  const expenseList = document.getElementById('expenseList');
+  const incomeTotalEl = document.getElementById('incomeTotal');
+  const expenseTotalEl = document.getElementById('expenseTotal');
+  const balanceTotalEl = document.getElementById('balanceTotal');
+  const incomeGroupTotalEl = document.getElementById('incomeGroupTotal');
+  const expenseGroupTotalEl = document.getElementById('expenseGroupTotal');
+  const toastEl = document.getElementById('toast');
+
+  let current = new Date();
+  current.setDate(1);
+  let entries = []; // {id, type, label, amount}
+
+  function monthKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  function storageKey(d) {
+    return 'entries:' + monthKey(d);
+  }
+
+  function fmtYen(n) {
+    return '¥' + Math.round(n).toLocaleString('ja-JP');
+  }
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toastEl.classList.remove('show'), 1600);
+  }
+
+  async function loadMonth() {
+    monthLabel.textContent = current.getFullYear() + '年' + (current.getMonth() + 1) + '月';
+    incomeList.innerHTML = '<div class="empty">読み込み中…</div>';
+    expenseList.innerHTML = '';
+    try {
+      const res = await window.storage.get(storageKey(current), false);
+      entries = res && res.value ? JSON.parse(res.value) : [];
+    } catch (e) {
+      entries = [];
+    }
+    render();
+  }
+
+  async function saveMonth() {
+    try {
+      await window.storage.set(storageKey(current), JSON.stringify(entries), false);
+    } catch (e) {
+      showToast('保存に失敗しました');
+    }
+  }
+
+  function render() {
+    const incomes = entries.filter(e => e.type === 'income');
+    const expenses = entries.filter(e => e.type === 'expense');
+
+    renderList(incomeList, incomes);
+    renderList(expenseList, expenses);
+
+    const incomeSum = incomes.reduce((s, e) => s + e.amount, 0);
+    const expenseSum = expenses.reduce((s, e) => s + e.amount, 0);
+
+    incomeTotalEl.textContent = fmtYen(incomeSum);
+    expenseTotalEl.textContent = fmtYen(expenseSum);
+    balanceTotalEl.textContent = fmtYen(incomeSum - expenseSum);
+    incomeGroupTotalEl.textContent = fmtYen(incomeSum);
+    expenseGroupTotalEl.textContent = fmtYen(expenseSum);
+  }
+
+  function renderList(container, list) {
+    if (list.length === 0) {
+      container.innerHTML = '<div class="empty">まだ記録がありません</div>';
+      return;
+    }
+    container.innerHTML = '';
+    list.slice().reverse().forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'entry ' + item.type;
+      row.innerHTML =
+        '<div class="label"></div>' +
+        '<div class="amount"></div>' +
+        '<button class="del" aria-label="削除">×</button>';
+      row.querySelector('.label').textContent = item.label;
+      row.querySelector('.amount').textContent =
+        (item.type === 'expense' ? '-' : '+') + fmtYen(item.amount);
+      row.querySelector('.del').addEventListener('click', () => {
+        entries = entries.filter(e => e.id !== item.id);
+        render();
+        saveMonth();
+      });
+      container.appendChild(row);
+    });
+  }
+
+  function addEntry(type, label, amount) {
+    entries.push({
+      id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+      type, label, amount
+    });
+    render();
+    saveMonth();
+  }
+
+  document.getElementById('incomeForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const labelEl = document.getElementById('incomeLabel');
+    const amountEl = document.getElementById('incomeAmount');
+    const label = labelEl.value.trim();
+    const amount = parseFloat(amountEl.value);
+    if (!label || isNaN(amount) || amount < 0) return;
+    addEntry('income', label, amount);
+    labelEl.value = '';
+    amountEl.value = '';
+    labelEl.focus();
+    showToast('収入を追加しました');
+  });
+
+  document.getElementById('expenseForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const labelEl = document.getElementById('expenseLabel');
+    const amountEl = document.getElementById('expenseAmount');
+    const label = labelEl.value.trim();
+    const amount = parseFloat(amountEl.value);
+    if (!label || isNaN(amount) || amount < 0) return;
+    addEntry('expense', label, amount);
+    labelEl.value = '';
+    amountEl.value = '';
+    labelEl.focus();
+    showToast('支出を追加しました');
+  });
+
+  document.getElementById('prevMonth').addEventListener('click', () => {
+    current.setMonth(current.getMonth() - 1);
+    loadMonth();
+  });
+  document.getElementById('nextMonth').addEventListener('click', () => {
+    current.setMonth(current.getMonth() + 1);
+    loadMonth();
+  });
+
+  async function exportBackup() {
+    try {
+      const listRes = await window.storage.list('entries:', false);
+      const keys = listRes && listRes.keys ? listRes.keys : [];
+      if (keys.length === 0) {
+        showToast('まだ記録がありません');
+        return;
+      }
+      const data = {};
+      for (const key of keys) {
+        const res = await window.storage.get(key, false);
+        if (res && res.value) data[key] = JSON.parse(res.value);
+      }
+      const payload = {
+        app: 'kakeibo-tsukizukicho',
+        exportedAt: new Date().toISOString(),
+        data
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = 'kakeibo-backup-' + dateStr + '.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      document.getElementById('lastBackupNote').textContent =
+        '書き出し完了：' + keys.length + 'ヶ月分のデータ';
+      showToast('バックアップを書き出しました');
+    } catch (e) {
+      showToast('書き出しに失敗しました');
+    }
+  }
+
+  async function importBackup(file) {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const data = parsed && parsed.data ? parsed.data : parsed;
+      const keys = Object.keys(data).filter(k => k.startsWith('entries:'));
+      if (keys.length === 0) {
+        showToast('有効なバックアップファイルではありません');
+        return;
+      }
+      for (const key of keys) {
+        await window.storage.set(key, JSON.stringify(data[key]), false);
+      }
+      document.getElementById('lastBackupNote').textContent =
+        '復元完了：' + keys.length + 'ヶ月分のデータ';
+      showToast('データを復元しました');
+      loadMonth();
+    } catch (e) {
+      showToast('復元に失敗しました。ファイルを確認してください');
+    }
+  }
+
+  document.getElementById('exportBtn').addEventListener('click', exportBackup);
+  document.getElementById('importBtn').addEventListener('click', () => {
+    document.getElementById('importFile').click();
+  });
+  document.getElementById('importFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) importBackup(file);
+    e.target.value = '';
+  });
+
+  loadMonth();
+})();
+</script>
+</body>
+</html>
